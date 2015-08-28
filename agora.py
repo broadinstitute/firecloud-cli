@@ -92,10 +92,13 @@ def get_user_synopsis():
 def httpRequest(baseUrl, path, method, authToken, requestBody, expectedReturnStatus):
     conn = httplib.HTTPSConnection(baseUrl)
     headers = {'Cookie': authToken, 'Content-type':  "application/json"}
-    if requestBody is None:
-        conn.request(method, path, headers=headers)
-    else:
-        conn.request(method, path, requestBody, headers=headers)
+    try:
+        if requestBody is None:
+            conn.request(method, path, headers=headers)
+        else:
+            conn.request(method, path, requestBody, headers=headers)
+    except Exception as e:
+        raise httplib.HTTPException("Could not connect to {0}{1} with method {2}".format(baseUrl,path, method))
     response = conn.getresponse()
     data = response.read()
     if response.status != expectedReturnStatus:
