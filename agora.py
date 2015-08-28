@@ -172,7 +172,7 @@ if __name__ == "__main__":
     
     # Core application arguments
     parser.add_argument('-a', '--auth', dest='auth', action='store', help='Oath token key=value pair for passing in request cookies')
-    parser.add_argument('-u', '--url', dest='agoraUrl', default='agora-prod.broadinstitute.org', action='store', help='Agora location. Default is agora-prod.broadinstitute.org')
+    parser.add_argument('-u', '--url', dest='agoraUrl', default='agora.dsde-staging.broadinstitute.org', action='store', help='Agora location. Default is agora.dsde-staging.broadinstitute.org')
     endpoint_group = parser.add_mutually_exclusive_group(required=True)
     endpoint_group.add_argument('-c', '--configurations', action='store_true', help='Operate on task-configurations, via the /configurations endpoint')
     endpoint_group.add_argument('-m', '--methods', action='store_true', help='Operate on tasks and workflows, via the /methods endpoint')    
