@@ -8,27 +8,39 @@
 # contact: dsde-engineering@broadinstitute.org
 # 2015
 # 
-# Run python agora.py -h to get usage info
+# Run 
+#  python agora.py -h to get usage info
+#
+# Must authenticate via gcloud first, you can check by running 'gcloud auth list' 
+# first and seeing if there is a credentialled account, and if not login using
+# 'gcloud auth login'
 #
 # NOTES:
 # 
 # Supports the push, get-by-reference, and list methods
 # Supports both configurations and workflows
 #
-# Must find a way to programatically get an Oath token from the openAM server.
-#   Currently, assumes you just grabbed the token and are passing it in as an
-#   argument. Really hackish.
 # 
 ################################################################################
 
 
+from oauth2client.client import GoogleCredentials
+from oauth2client.client import AccessTokenRefreshError
+import httplib2
+
 from argparse import ArgumentParser
 import os, sys, tempfile, subprocess
 import getpass
-import csv
-import httplib
-import urllib
 import json
+
+
+global_error_message = """    ******************************************************************************
+* ERROR: Unable to access your google credentials.                           *
+*                                                                            *
+* This is most often caused by either                                        *
+*     (a) not having gcloud installed (see https://cloud.google.com/sdk/)    *
+*     (b) gcloud is not logged in (run 'gcloud auth login')                  *
+******************************************************************************"""
 
 def fail(message):
     print message
@@ -89,45 +101,57 @@ def get_user_synopsis():
     return synopsis
 
 
-def httpRequest(baseUrl, path, method, authToken, requestBody, expectedReturnStatus):
-    conn = httplib.HTTPSConnection(baseUrl)
-    headers = {'Cookie': authToken, 'Content-type':  "application/json"}
+def httpRequest(baseUrl, path, insecureSsl, method, requestBody, expectedReturnStatus):
+    http = httplib2.Http(".cache", disable_ssl_certificate_validation=(not insecureSsl))
+
+    # get the credentials for the google proxy using the application default, which
+    # is described at 
+    # https://developers.google.com/identity/protocols/application-default-credentials#howtheywork
+    #
+    # Most often, this is obtained from the users current 'gcloud' credentials
     try:
-        if requestBody is None:
-            conn.request(method, path, headers=headers)
-        else:
-            conn.request(method, path, requestBody, headers=headers)
+        credentials = GoogleCredentials.get_application_default()
+        http = credentials.authorize(http)
+        headers = {'Content-type':  "application/json"}
+        response, content = http.request(
+            uri=baseUrl + path,
+            method=method,
+            headers=headers,
+            body=requestBody
+        )
+    except AccessTokenRefreshError as atre:
+        fail(global_error_message)
     except Exception as e:
-        raise httplib.HTTPException("Could not connect to {0}{1} with method {2}".format(baseUrl,path, method))
-    response = conn.getresponse()
-    data = response.read()
+        print e
+        fail("Could not connect to {0}{1} with method {2}".format(baseUrl,path, method))
+
     if response.status != expectedReturnStatus:
         message = ("[ERROR] Agora HTTP request failed\n"
                    "Request URL: " + path + "\n"
                    "Request body:\n"
                    + str(requestBody) + "\n"
                    "Response:\n"
-                   + str(response.status) + " " + response.reason + " " + data
+                   + str(response.status) + " " + response.reason + " " + content
                   )
         fail(message)
-    return json.loads(data)
+    return content
 
 # Performs the actual content POST to agora. Fails on non-201(created) responses.
-def entity_post(baseUrl, authToken, endpoint, namespace, name, synopsis, documentation, entityType, payload):
+def entity_post(baseUrl, endpoint, insecureSsl, namespace, name, synopsis, documentation, entityType, payload):
     path = endpoint
     addRequest = {"namespace": namespace, "name": name, "synopsis": synopsis, "documentation": documentation, "entityType": entityType, "payload": payload}
     requestBody = json.dumps(addRequest)
-    return httpRequest(baseUrl, path, "POST", authToken, requestBody, 201)
+    return httpRequest(baseUrl, path, insecureSsl, "POST", requestBody, 201)
 
 # Perform the actual GET using namespace, name, snapshotId
-def entity_get(baseUrl, authToken, endpoint, namespace, name, snapshot_id):
+def entity_get(baseUrl, endpoint, insecureSsl, namespace, name, snapshot_id):
     path = endpoint + "/" + namespace + "/" + name + "/" + str(snapshot_id)
-    return httpRequest(baseUrl, path, "GET", authToken, None, 200)
+    return httpRequest(baseUrl, path, insecureSsl,  "GET", None, 200)
 
 # Perform the actual GET to list entities filtered by query-string parameters
-def entity_list(baseUrl, authToken, endpoint, queryString):
+def entity_list(baseUrl, endpoint, insecureSsl, queryString):
     path = endpoint + queryString
-    return httpRequest(baseUrl, path, "GET", authToken, None, 200)
+    return httpRequest(baseUrl, path, insecureSsl,  "GET", None, 200)
 
 # Given program arguments, including a payload file, pushes content to agora
 def push(args):
@@ -139,18 +163,19 @@ def push(args):
     synopsis = args.synopsis
     if synopsis is None:
         synopsis = get_user_synopsis()
-    push_response = entity_post(args.agoraUrl, args.auth, endpoint, namespace, name, synopsis, documentation, args.entityType, payload)
+    push_response = entity_post(args.agoraUrl, endpoint, args.insecureSsl, namespace, name, synopsis, documentation, args.entityType, payload)
     print "Succesfully pushed to Agora. Reponse:"
     print push_response
 
 # Given program args namespace, name, id: pull a specific method
 def pull(args):
     endpoint = get_endpoint(args.configurations, args.methods)
-    print entity_get(args.agoraUrl, args.auth, endpoint, args.namespace, args.name, args.snapshotId)
+    print entity_get(args.agoraUrl, endpoint, args.insecureSsl, args.namespace, args.name, args.snapshotId)
 
 # Given the program arguments, query the methods repository for a filtered list of methods
 def list_entities(args):
     baseUrl = args.agoraUrl
+    insecureSsl = args.insecureSsl
     endpoint = get_endpoint(args.configurations, args.methods)
     queryString = "?"
     if args.includedFields:
@@ -161,21 +186,25 @@ def list_entities(args):
             queryString = queryString + "excludedField=" + field + "&"
     excludedFields = args.excludedFields
     args = args.__dict__
-    trimmedArgs = {key: value for key, value in args.iteritems() if args[key] and key != 'func' and key != 'auth' and key != 'methods' and key != 'configurations' and key != 'excludedFields' and key != 'includedFields' and key != 'agoraUrl'}
+    
+    knownArgs = ['func','methods' ,'methods' ,'configurations' ,'excludedFields' ,'includedFields' ,'agoraUrl','insecureSsl']
+    trimmedArgs = {key: value for key, value in args.iteritems() if args[key] and key not in knownArgs}
     for key, value in trimmedArgs.iteritems():
         queryString = queryString + key + "=" + value + "&"
     queryString = queryString.rstrip("&")
     if queryString == '?':
         queryString = ''
-    print entity_list(baseUrl, args['auth'], endpoint, queryString)
 
-if __name__ == "__main__":
+    print entity_list(baseUrl, endpoint, insecureSsl, queryString)
+
+def main():
     # The main argument parser
     parser = ArgumentParser(description="CLI for accessing the AGORA methods repository. Currently only handles method push")
     
     # Core application arguments
-    parser.add_argument('-a', '--auth', dest='auth', action='store', help='Oath token key=value pair for passing in request cookies')
-    parser.add_argument('-u', '--url', dest='agoraUrl', default='agora.dsde-staging.broadinstitute.org', action='store', help='Agora location. Default is agora.dsde-staging.broadinstitute.org')
+    parser.add_argument('-u', '--url', dest='agoraUrl', default='https://agora.dsde-dev.broadinstitute.org', action='store', help='Agora location. Default is https://agora.dsde-dev.broadinstitute.org')
+    parser.add_argument('-k', '--insecure', dest='insecureSsl', default='False', action='store_true', help='use insecure ssl (allow self-signed certificates)')
+    
     endpoint_group = parser.add_mutually_exclusive_group(required=True)
     endpoint_group.add_argument('-c', '--configurations', action='store_true', help='Operate on task-configurations, via the /configurations endpoint')
     endpoint_group.add_argument('-m', '--methods', action='store_true', help='Operate on tasks and workflows, via the /methods endpoint')    
@@ -216,6 +245,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args.func(args)
 
+if __name__ == "__main__":
+    main()
     
 
 
