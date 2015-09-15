@@ -144,14 +144,21 @@ def entity_post(baseUrl, endpoint, insecureSsl, namespace, name, synopsis, docum
     return httpRequest(baseUrl, path, insecureSsl, "POST", requestBody, 201)
 
 # Perform the actual GET using namespace, name, snapshotId
-def entity_get(baseUrl, endpoint, insecureSsl, namespace, name, snapshot_id):
+def entity_get(baseUrl, endpoint, insecureSsl, onlyPayload, namespace, name, snapshot_id):
     path = endpoint + "/" + namespace + "/" + name + "/" + str(snapshot_id)
+    if onlyPayload:
+        path = path + "?onlyPayload=true"
     return httpRequest(baseUrl, path, insecureSsl,  "GET", None, 200)
 
 # Perform the actual GET to list entities filtered by query-string parameters
 def entity_list(baseUrl, endpoint, insecureSsl, queryString):
     path = endpoint + queryString
     return httpRequest(baseUrl, path, insecureSsl,  "GET", None, 200)
+
+# Perform the actual DELETE using namespace, name, snapshotId
+def entity_redact(baseUrl, endpoint, insecureSsl, namespace, name, snapshot_id):
+    path = endpoint + "/" + namespace + "/" + name + "/" + str(snapshot_id)
+    return httpRequest(baseUrl, path, insecureSsl,  "DELETE", None, 200)
 
 # Given program arguments, including a payload file, pushes content to agora
 def push(args):
@@ -170,7 +177,7 @@ def push(args):
 # Given program args namespace, name, id: pull a specific method
 def pull(args):
     endpoint = get_endpoint(args.configurations, args.methods)
-    print entity_get(args.agoraUrl, endpoint, args.insecureSsl, args.namespace, args.name, args.snapshotId)
+    print entity_get(args.agoraUrl, endpoint, args.insecureSsl, args.onlyPayload, args.NAMESPACE, args.NAME, args.SNAPSHOT_ID)
 
 # Given the program arguments, query the methods repository for a filtered list of methods
 def list_entities(args):
@@ -197,6 +204,11 @@ def list_entities(args):
 
     print entity_list(baseUrl, endpoint, insecureSsl, queryString)
 
+# Given program args namespace, name, id: redact a specific method
+def redact(args):
+    endpoint = get_endpoint(args.configurations, args.methods)
+    print entity_redact(args.agoraUrl, endpoint, args.insecureSsl, args.NAMESPACE, args.NAME, args.SNAPSHOT_ID)
+
 def main():
     # The main argument parser
     parser = ArgumentParser(description="CLI for accessing the AGORA methods repository. Currently only handles method push")
@@ -222,9 +234,10 @@ def main():
     
     # GET (namespace/name/id) arguments
     pull_parser = subparsers.add_parser('pull', description='Get a specific method snapshot from the Agora Methods Repository', help='Get a specific method snapshot from the Agora Methods Repository')
-    pull_parser.add_argument('-s', '--namespace', dest='namespace', action='store', help='The namespace for the entity you are trying to get', required=True)
-    pull_parser.add_argument('-n', '--name', dest='name', action='store', help='The name of the entity you are trying to get', required=True)
-    pull_parser.add_argument('-i', '--snapshotId', dest='snapshotId', type=int, action='store', help='The snapshot-id of the entity you are trying to get', required=True)
+    pull_parser.add_argument('-o', '--onlyPayload', dest='onlyPayload', action='store_true', help='Get only the payload for the method of interest (ie the WDL or configuration JSON)')
+    pull_parser.add_argument('NAMESPACE', action='store', help='The namespace for the entity you are trying to get')
+    pull_parser.add_argument('NAME', action='store', help='The name of the entity you are trying to get')
+    pull_parser.add_argument('SNAPSHOT_ID', type=int, action='store', help='The snapshot-id of the entity you are trying to get')
     pull_parser.set_defaults(func=pull)
     
     # GET (query-paremeters) arguments
@@ -240,6 +253,13 @@ def main():
     list_parser.add_argument('-p', '--payload', dest='payload', action='store', help='The exact payload of the entities you are trying to get')
     list_parser.add_argument('-t', '--entityType', dest='entityType', action='store', help='The type of the entities you are trying to get',choices=['Task', 'Workflow', 'Configuration'])
     list_parser.set_defaults(func=list_entities)
+
+    # DELETE (namespace/name/id) arguments
+    redact_parser = subparsers.add_parser('redact', description='Redact a specific method snapshot and all of its associated configurations from the Agora Methods Repository', help='Redact a specific method snapshot and all of its associated configurations from the Agora Methods Repository')
+    redact_parser.add_argument('NAMESPACE', action='store', help='The namespace for the entity you are trying to redact')
+    redact_parser.add_argument('NAME', action='store', help='The name of the entity you are trying to redact')
+    redact_parser.add_argument('SNAPSHOT_ID', type=int, action='store', help='The snapshot-id of the entity you are trying to redact')
+    redact_parser.set_defaults(func=redact)
 
     # Call the appropriate function for the given subcommand, passing in the parsed program arguments
     args = parser.parse_args()
