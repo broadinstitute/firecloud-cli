@@ -17,7 +17,7 @@
 #
 # NOTES:
 # 
-# Supports the push, get-by-reference, and list methods
+# Supports the push, get-by-reference, list, and redact methods
 # Supports both configurations and workflows
 #
 # 
