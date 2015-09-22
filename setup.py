@@ -27,7 +27,7 @@ setup(
   entry_points = {
         'console_scripts': [
             'firecloud = firecloudcli.main:main',
-            'agora = firecloudcli.agora:main'
+            'methods_repo = firecloudcli.methods_repo:main'
         ],
     }
 )
