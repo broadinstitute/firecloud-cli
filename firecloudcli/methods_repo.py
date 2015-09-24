@@ -197,7 +197,7 @@ def list_entities(args):
     knownArgs = ['func','methods','configurations','excludedFields','includedFields','firecloudUrl','insecureSsl']
     trimmedArgs = {key: value for key, value in args.iteritems() if args[key] and key not in knownArgs}
     for key, value in trimmedArgs.iteritems():
-        queryString = queryString + key + "=" + value + "&"
+        queryString = queryString + key + "=" + str(value) + "&"
     queryString = queryString.rstrip("&")
     if queryString == '?':
         queryString = ''
