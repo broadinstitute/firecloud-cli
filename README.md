@@ -8,7 +8,7 @@ The FireCloud CLI requires:
 * Virtualenv (run `sudo pip install virtualenv`)
 * Google Cloud SDK (see https://cloud.google.com/sdk/)
 
-To install run `./install.sh` and follow the instructions to add ~./firecloud-cli/venv/bin to your default path
+To install run `./install.sh` and follow the instructions to add ~/.firecloud-cli/venv/bin to your default path
 
 ## Usage
 
