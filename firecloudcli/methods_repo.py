@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 ################################################################################
-# agora.py
+# methods_repo.py
 # 
-# A CLI providing convenient access to the Agora methods repository REST API.
+# A CLI providing convenient access to the FireCloud methods repository REST API.
 #
 # author: Bradt
 # contact: dsde-engineering@broadinstitute.org
 # 2015
 # 
 # Run 
-#  python agora.py -h to get usage info
+#  methods_repo -h to get usage info
 #
 # Must authenticate via gcloud first, you can check by running 'gcloud auth list' 
 # first and seeing if there is a credentialled account, and if not login using
@@ -126,7 +126,7 @@ def httpRequest(baseUrl, path, insecureSsl, method, requestBody, expectedReturnS
         fail("Could not connect to {0}{1} with method {2}".format(baseUrl,path, method))
 
     if response.status != expectedReturnStatus:
-        message = ("[ERROR] Agora HTTP request failed\n"
+        message = ("[ERROR] HTTP request failed\n"
                    "Request URL: " + path + "\n"
                    "Request body:\n"
                    + str(requestBody) + "\n"
@@ -136,7 +136,7 @@ def httpRequest(baseUrl, path, insecureSsl, method, requestBody, expectedReturnS
         fail(message)
     return content
 
-# Performs the actual content POST to agora. Fails on non-201(created) responses.
+# Performs the actual content POST. Fails on non-201(created) responses.
 def entity_post(baseUrl, endpoint, insecureSsl, namespace, name, synopsis, documentation, entityType, payload):
     path = endpoint
     addRequest = {"namespace": namespace, "name": name, "synopsis": synopsis, "documentation": documentation, "entityType": entityType, "payload": payload}
@@ -160,7 +160,7 @@ def entity_redact(baseUrl, endpoint, insecureSsl, namespace, name, snapshot_id):
     path = endpoint + "/" + namespace + "/" + name + "/" + str(snapshot_id)
     return httpRequest(baseUrl, path, insecureSsl,  "DELETE", None, 200)
 
-# Given program arguments, including a payload file, pushes content to agora
+# Given program arguments, including a payload file, pushes content
 def push(args):
     endpoint = get_endpoint(args.configurations, args.methods)
     namespace = get_push_namespace(args.namespace)  
@@ -170,18 +170,18 @@ def push(args):
     synopsis = args.synopsis
     if synopsis is None:
         synopsis = get_user_synopsis()
-    push_response = entity_post(args.agoraUrl, endpoint, args.insecureSsl, namespace, name, synopsis, documentation, args.entityType, payload)
-    print "Succesfully pushed to Agora. Reponse:"
+    push_response = entity_post(args.firecloudUrl, endpoint, args.insecureSsl, namespace, name, synopsis, documentation, args.entityType, payload)
+    print "Succesfully pushed. Reponse:"
     print push_response
 
 # Given program args namespace, name, id: pull a specific method
 def pull(args):
     endpoint = get_endpoint(args.configurations, args.methods)
-    print entity_get(args.agoraUrl, endpoint, args.insecureSsl, args.onlyPayload, args.NAMESPACE, args.NAME, args.SNAPSHOT_ID)
+    print entity_get(args.firecloudUrl, endpoint, args.insecureSsl, args.onlyPayload, args.NAMESPACE, args.NAME, args.SNAPSHOT_ID)
 
 # Given the program arguments, query the methods repository for a filtered list of methods
 def list_entities(args):
-    baseUrl = args.agoraUrl
+    baseUrl = args.firecloudUrl
     insecureSsl = args.insecureSsl
     endpoint = get_endpoint(args.configurations, args.methods)
     queryString = "?"
@@ -194,7 +194,7 @@ def list_entities(args):
     excludedFields = args.excludedFields
     args = args.__dict__
     
-    knownArgs = ['func','methods' ,'methods' ,'configurations' ,'excludedFields' ,'includedFields' ,'agoraUrl','insecureSsl']
+    knownArgs = ['func','methods','configurations','excludedFields','includedFields','firecloudUrl','insecureSsl']
     trimmedArgs = {key: value for key, value in args.iteritems() if args[key] and key not in knownArgs}
     for key, value in trimmedArgs.iteritems():
         queryString = queryString + key + "=" + value + "&"
@@ -207,23 +207,23 @@ def list_entities(args):
 # Given program args namespace, name, id: redact a specific method
 def redact(args):
     endpoint = get_endpoint(args.configurations, args.methods)
-    print entity_redact(args.agoraUrl, endpoint, args.insecureSsl, args.NAMESPACE, args.NAME, args.SNAPSHOT_ID)
+    print entity_redact(args.firecloudUrl, endpoint, args.insecureSsl, args.NAMESPACE, args.NAME, args.SNAPSHOT_ID)
 
 def main():
     # The main argument parser
-    parser = ArgumentParser(description="CLI for accessing the AGORA methods repository. Currently only handles method push")
-    
+    parser = ArgumentParser(description="CLI for accessing the FireCloud methods repository.")
+
     # Core application arguments
-    parser.add_argument('-u', '--url', dest='agoraUrl', default='https://agora.dsde-dev.broadinstitute.org', action='store', help='Agora location. Default is https://agora.dsde-dev.broadinstitute.org')
+    parser.add_argument('-u', '--url', dest='firecloudUrl', default='https://firecloud.dsde-dev.broadinstitute.org/service/api', action='store', help='Firecloud API location. Default is https://firecloud.dsde-dev.broadinstitute.org/service/api')
     parser.add_argument('-k', '--insecure', dest='insecureSsl', default='False', action='store_true', help='use insecure ssl (allow self-signed certificates)')
     
     endpoint_group = parser.add_mutually_exclusive_group(required=True)
     endpoint_group.add_argument('-c', '--configurations', action='store_true', help='Operate on task-configurations, via the /configurations endpoint')
     endpoint_group.add_argument('-m', '--methods', action='store_true', help='Operate on tasks and workflows, via the /methods endpoint')    
-    subparsers = parser.add_subparsers(help='Agora Methods Repository actions')
+    subparsers = parser.add_subparsers(help='FireCloud Methods Repository actions')
     
     # POST arguments
-    push_parser = subparsers.add_parser('push', description='Push a method to the Agora Methods Repository', help='Push a method to the Agora Methods Repository')
+    push_parser = subparsers.add_parser('push', description='Push a method to the FireCloud Methods Repository', help='Push a method to the FireCloud Methods Repository')
     push_parser.add_argument('-s', '--namespace', dest='namespace', action='store', help='The namespace for method addition. Default value is your user login name')
     push_parser.add_argument('-n', '--name', dest='name', action='store', help='The method name to provide for method addition. Default is the name of the PAYLOAD_FILE.')
     push_parser.add_argument('-d', '--documentation', dest='docs', action='store', help='A file containing user documentation. Must be <10kb. May be plain text. Marking languages such as HTML or Github markdown are also supported')
@@ -233,7 +233,7 @@ def main():
     push_parser.set_defaults(func=push)
     
     # GET (namespace/name/id) arguments
-    pull_parser = subparsers.add_parser('pull', description='Get a specific method snapshot from the Agora Methods Repository', help='Get a specific method snapshot from the Agora Methods Repository')
+    pull_parser = subparsers.add_parser('pull', description='Get a specific method snapshot from the FireCloud Methods Repository', help='Get a specific method snapshot from the FireCloud Methods Repository')
     pull_parser.add_argument('-o', '--onlyPayload', dest='onlyPayload', action='store_true', help='Get only the payload for the method of interest (ie the WDL or configuration JSON)')
     pull_parser.add_argument('NAMESPACE', action='store', help='The namespace for the entity you are trying to get')
     pull_parser.add_argument('NAME', action='store', help='The name of the entity you are trying to get')
@@ -241,7 +241,7 @@ def main():
     pull_parser.set_defaults(func=pull)
     
     # GET (query-paremeters) arguments
-    list_parser = subparsers.add_parser('list', description='List methods in the Agora Methods Repository based on metadata', help='List methods in the Agora Methods Repository based on metadata')
+    list_parser = subparsers.add_parser('list', description='List methods in the FireCloud Methods Repository based on metadata', help='List methods in the FireCloud Methods Repository based on metadata')
     list_parser.add_argument('-f', '--includedFields', dest='includedFields', nargs='*', action='store', help='Any specific metadata fields you wish to be included in the response entities')
     list_parser.add_argument('-e', '--excludedFields', dest='excludedFields', nargs='*', action='store', help='Any specific metadata fields you wish to be excluded from the response entities')
     list_parser.add_argument('-s', '--namespace', dest='namespace', action='store', help='The namespace for the entities you are trying to get')
@@ -255,7 +255,7 @@ def main():
     list_parser.set_defaults(func=list_entities)
 
     # DELETE (namespace/name/id) arguments
-    redact_parser = subparsers.add_parser('redact', description='Redact a specific method snapshot and all of its associated configurations from the Agora Methods Repository', help='Redact a specific method snapshot and all of its associated configurations from the Agora Methods Repository')
+    redact_parser = subparsers.add_parser('redact', description='Redact a specific method snapshot and all of its associated configurations from the FireCloud Methods Repository', help='Redact a specific method snapshot and all of its associated configurations from the FireCloud Methods Repository')
     redact_parser.add_argument('NAMESPACE', action='store', help='The namespace for the entity you are trying to redact')
     redact_parser.add_argument('NAME', action='store', help='The name of the entity you are trying to redact')
     redact_parser.add_argument('SNAPSHOT_ID', type=int, action='store', help='The snapshot-id of the entity you are trying to redact')

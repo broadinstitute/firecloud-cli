@@ -12,4 +12,4 @@ To install run `./install.sh` and follow the instructions to add ~./firecloud-cl
 
 ## Usage
 
-After installation run `agora` for usage
+After installation run `firecloud` for usage

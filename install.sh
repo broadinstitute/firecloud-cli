@@ -23,7 +23,7 @@ python setup.py -q install &> ~/.firecloud-cli/install.log
 deactivate
 echo "Linking binaries "
 mkdir -p ~/.firecloud-cli/ubin
-ln -s ~/.firecloud-cli/venv/bin/agora ~/.firecloud-cli/ubin
+ln -s ~/.firecloud-cli/venv/bin/methods_repo ~/.firecloud-cli/ubin
 ln -s ~/.firecloud-cli/venv/bin/firecloud ~/.firecloud-cli/ubin
 
 trap - INT TERM EXIT
