@@ -1,6 +1,8 @@
 # firecloud-cli
 Command line tools for Firecloud
 
+NOTE: it is highly recommended that you use the Dockerized version described below
+
 ## Installation Instructions for Linux/OSX
 The FireCloud CLI requires:
 * Python 2.7+
