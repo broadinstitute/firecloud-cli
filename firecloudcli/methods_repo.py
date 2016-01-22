@@ -214,7 +214,7 @@ def main():
     parser = ArgumentParser(description="CLI for accessing the FireCloud methods repository.")
 
     # Core application arguments
-    parser.add_argument('-u', '--url', dest='firecloudUrl', default='https://firecloud.dsde-dev.broadinstitute.org/service/api', action='store', help='Firecloud API location. Default is https://firecloud.dsde-dev.broadinstitute.org/service/api')
+    parser.add_argument('-u', '--url', dest='firecloudUrl', default='https://firecloud.dsde-prod.broadinstitute.org/service/api', action='store', help='Firecloud API location. Default is https://firecloud.dsde-prod.broadinstitute.org/service/api')
     parser.add_argument('-k', '--insecure', dest='insecureSsl', default='False', action='store_true', help='use insecure ssl (allow self-signed certificates)')
     
     endpoint_group = parser.add_mutually_exclusive_group(required=True)
